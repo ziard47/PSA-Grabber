@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "PSA Fetch",
+    "version": "1.0.0",
+    "description": "PSA Fetch intelligently intercepts PSA torrent redirects and opens a real-time RSS feed for HEVC-PSA releases — no extra clicks, no ads.",
+    "permissions": [
+        "clipboardWrite"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "https://psa.wf/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "https://bt4gprx.com/*"
+            ],
+            "js": [
+                "rss.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "icons": {
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    }
+}
