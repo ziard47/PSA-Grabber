@@ -39,7 +39,7 @@ document.addEventListener(
 
         if (!link.href || !link.href.includes("psa.wf/goto")) return;
 
-        const titleEl = document.querySelector(".sp-head");
+        const titleEl = document.querySelector(".sp-head.unfolded");
         if (!titleEl) return;
 
         const titleText = titleEl.textContent.trim();
