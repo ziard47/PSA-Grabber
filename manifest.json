@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "PSA Fetch",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Intercepts PSA torrent redirects and opens a real-time RSS feed for HEVC-PSA releases — no extra clicks, no ads.",
   "permissions": [
-    "clipboardWrite"
+    "clipboardWrite",
+    "storage"
   ],
   "content_scripts": [
     {
