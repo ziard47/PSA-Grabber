@@ -1,6 +1,6 @@
 {
   "name": "psafetch",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "**PSA Fetch** is a lightweight Chrome extension that allows users to access RSS quickly feeds for **HEVC-PSA movies** on [PSA.wf](https://psa.wf). With a single click on the \"TORRENT\" or \"Download\" links, the extension opens the corresponding RSS feed, saving you time and effort.",
   "main": "content.js",
   "scripts": {

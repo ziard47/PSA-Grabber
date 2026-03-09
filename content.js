@@ -51,6 +51,7 @@
         // Match standard PSA elements and strong tags
         const elements = document.querySelectorAll('.sp-head, strong');
         elements.forEach(el => {
+            if (el.closest('#footer-widgets')) return;
             const text = el.textContent.trim();
             if (text.includes('.HEVC-PSA') && text.length < 200) {
                 titles.push(text);
@@ -62,6 +63,7 @@
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
             let node;
             while (node = walker.nextNode()) {
+                if (node.parentElement && node.parentElement.closest('#footer-widgets')) continue;
                 const text = node.nodeValue.trim();
                 if (text.includes('.HEVC-PSA') && text.length < 200) {
                     titles.push(text);
