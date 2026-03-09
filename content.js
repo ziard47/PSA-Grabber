@@ -231,6 +231,61 @@
                     gap: 8px;
                 }
 
+                .psa-header-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                /* Toggle Switch Styles */
+                .psa-toggle-wrapper {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 11px;
+                    color: rgba(255, 255, 255, 0.6);
+                    font-weight: 500;
+                    cursor: pointer;
+                }
+
+                .psa-toggle-wrapper:hover {
+                    color: rgba(255, 255, 255, 0.9);
+                }
+
+                .psa-toggle {
+                    position: relative;
+                    width: 32px;
+                    height: 18px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 20px;
+                    transition: all 0.3s;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .psa-toggle::after {
+                    content: '';
+                    position: absolute;
+                    top: 2px;
+                    left: 2px;
+                    width: 12px;
+                    height: 12px;
+                    background: #fff;
+                    border-radius: 50%;
+                    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+
+                .psa-toggle.active {
+                    background: rgba(0, 255, 136, 0.2);
+                    border-color: rgba(0, 255, 136, 0.5);
+                }
+
+                .psa-toggle.active::after {
+                    transform: translateX(14px);
+                    background: #00ff88;
+                    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+                }
+
                 .psa-badge {
                     background: rgba(0, 255, 136, 0.15);
                     color: #00ff88;
@@ -337,9 +392,15 @@
             <div id="psa-grabber-header">
                 <div class="psa-grabber-header-top">
                     <h3>✨ PSA Fetch V2 <span class="psa-badge">${fileNames.length}</span></h3>
-                    <button id="psa-grabber-close" title="Close Panel">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
+                    <div class="psa-header-actions">
+                        <div class="psa-toggle-wrapper" id="psa-torrent-toggle-wrap" title="Auto-open default torrent client">
+                            <span id="psa-toggle-label">Auto-open</span>
+                            <div class="psa-toggle" id="psa-torrent-toggle"></div>
+                        </div>
+                        <button id="psa-grabber-close" title="Close Panel">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
                 </div>
                 <input type="text" id="psa-grabber-search" placeholder="Search filenames..." autocomplete="off" spellcheck="false" />
                 <div class="psa-grabber-tabs">
@@ -447,6 +508,33 @@
             }
         });
         document.getElementById("psa-grabber-header").style.cursor = "pointer";
+
+        // --- Torrent Toggle Logic ---
+        const toggleWrap = document.getElementById("psa-torrent-toggle-wrap");
+        const toggleBtn = document.getElementById("psa-torrent-toggle");
+
+        // Prevent header click from expanding/minimizing when clicking the toggle wrapper
+        toggleWrap.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            // Toggle local UI class
+            toggleBtn.classList.toggle("active");
+            const isActive = toggleBtn.classList.contains("active");
+
+            // Save state to chrome storage
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.set({ autoOpenMagnet: isActive });
+            }
+        });
+
+        // Initialize Toggle State on Load from chrome.storage
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get(['autoOpenMagnet'], (result) => {
+                if (result.autoOpenMagnet) {
+                    toggleBtn.classList.add("active");
+                }
+            });
+        }
     }
 
     renderPanel();
