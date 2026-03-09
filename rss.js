@@ -9,11 +9,11 @@
     // Try common RSS magnet locations
     let magnet = null;
 
-    // 1️⃣ <link> tags
+    // <link> tags
     const links = [...xmlDoc.getElementsByTagName("link")];
     magnet = links.find(l => l.textContent.startsWith("magnet:"))?.textContent;
 
-    // 2️⃣ <enclosure> fallback
+    // <enclosure> fallback
     if (!magnet) {
         const enclosures = [...xmlDoc.getElementsByTagName("enclosure")];
         magnet = enclosures.find(e => e.getAttribute("url")?.startsWith("magnet:"))?.getAttribute("url");

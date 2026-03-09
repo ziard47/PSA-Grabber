@@ -1,1 +1,10 @@
 PSAFetch v1.0.0.zip
+PSAFetch v2.0.0.zip
+
+node_modules/
+dist/
+dist.zip
+build_output.txt
+.DS_Store
+*.log
+releases/
