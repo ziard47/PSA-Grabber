@@ -44,9 +44,9 @@
 
     if (document.getElementById("psa-grabber-sidepanel")) return;
 
-    // Extract file names ending with .HEVC-PSA
-    function extractTitles() {
-        const titles = [];
+    // Extract file names and source names
+    function extractData() {
+        const items = [];
 
         // Match standard PSA elements and strong tags
         const elements = document.querySelectorAll('.sp-head, strong');
@@ -54,40 +54,79 @@
             if (el.closest('#footer-widgets')) return;
             const text = el.textContent.trim();
             if (text.includes('.HEVC-PSA') && text.length < 200) {
-                titles.push(text);
+                items.push({ name: text, type: 'psa' });
             }
         });
 
         // Fallback: search all text nodes if no .sp-head or strong tag with .HEVC-PSA found
-        if (titles.length === 0) {
+        if (items.filter(i => i.type === 'psa').length === 0) {
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
             let node;
             while (node = walker.nextNode()) {
                 if (node.parentElement && node.parentElement.closest('#footer-widgets')) continue;
                 const text = node.nodeValue.trim();
                 if (text.includes('.HEVC-PSA') && text.length < 200) {
-                    titles.push(text);
+                    items.push({ name: text, type: 'psa' });
                 }
             }
         }
 
-        return [...new Set(titles)];
+        // Extract sources
+        const pElements = document.querySelectorAll('p');
+        pElements.forEach(p => {
+            if (p.closest('#footer-widgets')) return;
+
+            // For blocks with <br> like MediaInfo dumps or normal blocks, 
+            // split by newline and check each line.
+            // Some browsers use \n for <br> in innerText
+            const lines = p.innerText.split('\n');
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                
+                // Match "Source:", "Source :", or "Source    :", with any spaces before colon
+                const sourceMatch = trimmedLine.match(/\bsource\s*:(.*)/i);
+
+                if (sourceMatch) {
+                    let text = sourceMatch[1].trim();
+                    // Extract only before "|" symbol
+                    if (text) {
+                        let cleanSource = text.split('|')[0].trim();
+                        if (cleanSource && cleanSource.length < 200) {
+                            items.push({ name: cleanSource, type: 'source' });
+                        }
+                    }
+                }
+            });
+        });
+
+        // Deduplicate
+        const uniqueItems = [];
+        const seen = new Set();
+        for (const item of items) {
+            if (!seen.has(item.name)) {
+                seen.add(item.name);
+                uniqueItems.push(item);
+            }
+        }
+
+        return uniqueItems;
     }
 
     function renderPanel() {
-        const fileNames = extractTitles();
+        const extracted = extractData();
         // If content is loaded dynamically, retry once after 2s
-        if (fileNames.length === 0) {
+        if (extracted.length === 0) {
             setTimeout(() => {
-                const retryNames = extractTitles();
-                if (retryNames.length > 0) buildDOM(retryNames);
+                const retryExtracted = extractData();
+                if (retryExtracted.length > 0) buildDOM(retryExtracted);
             }, 2000);
             return;
         }
-        buildDOM(fileNames);
+        buildDOM(extracted);
     }
 
-    function buildDOM(fileNames) {
+    function buildDOM(itemsData) {
         if (document.getElementById("psa-grabber-sidepanel")) return;
 
         const panel = document.createElement("div");
@@ -391,7 +430,7 @@
         panel.innerHTML = `
             <div id="psa-grabber-header">
                 <div class="psa-grabber-header-top">
-                    <h3>✨ PSA Fetch V2 <span class="psa-badge">${fileNames.length}</span></h3>
+                    <h3>✨ PSA Fetch V2 <span class="psa-badge">${itemsData.length}</span></h3>
                     <div class="psa-header-actions">
                         <div class="psa-toggle-wrapper" id="psa-torrent-toggle-wrap" title="Auto-open default torrent client">
                             <span id="psa-toggle-label">Auto-open</span>
@@ -408,6 +447,7 @@
                     <button class="psa-grabber-tab" data-filter="720p">720p</button>
                     <button class="psa-grabber-tab" data-filter="1080p">1080p</button>
                     <button class="psa-grabber-tab" data-filter="2160p">2160p</button>
+                    <button class="psa-grabber-tab" data-filter="source">Source</button>
                 </div>
             </div>
             <ul id="psa-grabber-list"></ul>
@@ -418,15 +458,21 @@
         const listElement = document.getElementById("psa-grabber-list");
         const listItems = [];
 
-        fileNames.forEach((name) => {
+        itemsData.forEach((itemData) => {
+            const name = itemData.name;
+            const type = itemData.type;
             const li = document.createElement("li");
             li.className = "psa-grabber-item";
 
+            const iconSvg = type === 'source'
+                ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`
+                : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+
+            const prefix = type === 'source' ? `<span style="color: #ff9f43; font-weight: 600; font-size: 11px; margin-right: 4px;">[SRC]</span>` : '';
+
             li.innerHTML = `
-                <div class="psa-grabber-item-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                </div>
-                <div class="psa-grabber-item-text">${name}</div>
+                <div class="psa-grabber-item-icon">${iconSvg}</div>
+                <div class="psa-grabber-item-text">${prefix}${name}</div>
             `;
 
             li.addEventListener("click", () => {
@@ -436,7 +482,7 @@
             });
 
             listElement.appendChild(li);
-            listItems.push({ element: li, text: name.toLowerCase() });
+            listItems.push({ element: li, text: name.toLowerCase(), type: type });
         });
 
         let currentSearchTerm = "";
@@ -446,7 +492,15 @@
             let visibleCount = 0;
             listItems.forEach(item => {
                 const matchesSearch = item.text.includes(currentSearchTerm);
-                const matchesFilter = currentFilter === "all" || item.text.includes(currentFilter);
+
+                let matchesFilter = false;
+                if (currentFilter === "all") {
+                    matchesFilter = true;
+                } else if (currentFilter === "source") {
+                    matchesFilter = (item.type === "source");
+                } else {
+                    matchesFilter = item.text.includes(currentFilter);
+                }
 
                 if (matchesSearch && matchesFilter) {
                     item.element.style.display = "flex";
