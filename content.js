@@ -1,50 +1,452 @@
 // ===== PSA Grabber Sidepanel =====
 (function initPSAGrabber() {
-    // 1. Show Global Indicator on ALL pages
-    if (!document.getElementById("psa-grabber-global-indicator")) {
+    // 1. Create or retrieve Shadow Root Host for complete CSS isolation from website styles
+    let hostEl = document.getElementById("psa-grabber-root");
+    let shadow;
+
+    if (!hostEl) {
+        hostEl = document.createElement("div");
+        hostEl.id = "psa-grabber-root";
+        
+        // Ensure host container takes zero layout space on the website and sits on top
+        Object.assign(hostEl.style, {
+            position: "static",
+            display: "block",
+            width: "0px",
+            height: "0px",
+            margin: "0px",
+            padding: "0px",
+            border: "none",
+            zIndex: "2147483647"
+        });
+
+        shadow = hostEl.attachShadow({ mode: "open" });
+        (document.body || document.documentElement).appendChild(hostEl);
+
+        // Inject scoped styles into Shadow DOM
+        const style = document.createElement("style");
+        style.textContent = `
+            :host {
+                all: initial;
+                font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+                font-size: 13px;
+                line-height: 1.4;
+                color: #f8fafc;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
+            *, *::before, *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                font-family: inherit;
+                line-height: inherit;
+                letter-spacing: normal;
+                text-transform: none;
+                text-align: left;
+                text-shadow: none;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            button {
+                all: unset;
+                box-sizing: border-box;
+                cursor: pointer;
+                font-family: inherit;
+            }
+
+            input {
+                all: unset;
+                box-sizing: border-box;
+                font-family: inherit;
+            }
+
+            ul, li {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+
+            svg {
+                display: block;
+                flex-shrink: 0;
+            }
+
+            /* --- Global Indicator --- */
+            #psa-grabber-global-indicator {
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                background: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(0, 255, 136, 0.25);
+                color: #00ff88;
+                padding: 8px 14px;
+                font-size: 13px;
+                font-weight: 600;
+                border-radius: 12px;
+                z-index: 2147483646;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 255, 136, 0.15);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                pointer-events: none;
+                transition: opacity 0.4s ease, transform 0.4s ease;
+                user-select: none;
+            }
+
+            /* --- Sidepanel Container --- */
+            #psa-grabber-sidepanel {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 390px;
+                max-height: 520px;
+                background: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 16px;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 255, 136, 0.05);
+                display: flex;
+                flex-direction: column;
+                z-index: 2147483647;
+                overflow: hidden;
+                transform: translateY(20px);
+                opacity: 0;
+                animation: psaSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
+                color: #f8fafc;
+                user-select: none;
+            }
+
+            @keyframes psaSlideIn {
+                to {
+                    transform: translateY(0) scale(1);
+                    opacity: 1;
+                }
+            }
+
+            #psa-grabber-sidepanel.minimized {
+                max-height: 52px;
+                opacity: 0.92;
+                cursor: pointer;
+                border-color: rgba(0, 255, 136, 0.3);
+            }
+            
+            #psa-grabber-sidepanel.minimized:hover {
+                opacity: 1;
+                transform: translateY(-2px);
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 255, 136, 0.15);
+            }
+
+            #psa-grabber-sidepanel.minimized #psa-grabber-list {
+                opacity: 0;
+                pointer-events: none;
+                display: none;
+            }
+
+            /* --- Header --- */
+            #psa-grabber-header {
+                padding: 14px 18px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                background: rgba(0, 0, 0, 0.25);
+                cursor: pointer;
+            }
+
+            .psa-grabber-header-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            #psa-grabber-header h3 {
+                margin: 0;
+                font-size: 15px;
+                font-weight: 700;
+                background: linear-gradient(135deg, #00ff88, #00b8ff);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                letter-spacing: -0.01em;
+            }
+
+            .psa-badge {
+                background: rgba(0, 255, 136, 0.15);
+                color: #00ff88;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 11px;
+                font-weight: 700;
+                -webkit-text-fill-color: #00ff88;
+                border: 1px solid rgba(0, 255, 136, 0.3);
+            }
+
+            .psa-header-actions {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            /* Toggle Switch */
+            .psa-toggle-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.65);
+                font-weight: 500;
+                cursor: pointer;
+                transition: color 0.2s;
+            }
+
+            .psa-toggle-wrapper:hover {
+                color: rgba(255, 255, 255, 0.95);
+            }
+
+            .psa-toggle {
+                position: relative;
+                width: 32px;
+                height: 18px;
+                background: rgba(255, 255, 255, 0.12);
+                border-radius: 20px;
+                transition: all 0.3s;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                cursor: pointer;
+            }
+
+            .psa-toggle::after {
+                content: '';
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 12px;
+                height: 12px;
+                background: #fff;
+                border-radius: 50%;
+                transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            }
+
+            .psa-toggle.active {
+                background: rgba(0, 255, 136, 0.25);
+                border-color: rgba(0, 255, 136, 0.6);
+            }
+
+            .psa-toggle.active::after {
+                transform: translateX(14px);
+                background: #00ff88;
+                box-shadow: 0 0 8px rgba(0, 255, 136, 0.8);
+            }
+
+            #psa-grabber-close {
+                background: none;
+                border: none;
+                color: rgba(255, 255, 255, 0.5);
+                cursor: pointer;
+                padding: 6px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            #psa-grabber-close:hover {
+                color: #ff4757;
+                background: rgba(255, 71, 87, 0.12);
+            }
+
+            /* --- Search Box --- */
+            #psa-grabber-search {
+                width: 100%;
+                box-sizing: border-box;
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #fff;
+                font-size: 12px;
+                outline: none;
+                transition: all 0.2s;
+                cursor: text;
+            }
+
+            #psa-grabber-search:focus {
+                border-color: rgba(0, 255, 136, 0.5);
+                background: rgba(255, 255, 255, 0.09);
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
+            }
+
+            #psa-grabber-search::placeholder {
+                color: rgba(255, 255, 255, 0.35);
+            }
+
+            /* --- Filter Tabs --- */
+            .psa-grabber-tabs {
+                display: flex;
+                gap: 5px;
+            }
+
+            .psa-grabber-tab {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                color: rgba(255, 255, 255, 0.6);
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                flex: 1;
+                text-align: center;
+            }
+
+            .psa-grabber-tab:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+            }
+
+            .psa-grabber-tab.active {
+                background: rgba(0, 255, 136, 0.15);
+                border-color: rgba(0, 255, 136, 0.45);
+                color: #00ff88;
+            }
+
+            #psa-grabber-sidepanel.minimized #psa-grabber-search,
+            #psa-grabber-sidepanel.minimized .psa-grabber-tabs {
+                display: none;
+            }
+
+            /* --- Items List --- */
+            #psa-grabber-list {
+                flex: 1;
+                overflow-y: auto;
+                padding: 12px;
+                margin: 0;
+                list-style: none;
+            }
+
+            #psa-grabber-list::-webkit-scrollbar {
+                width: 5px;
+            }
+            #psa-grabber-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            #psa-grabber-list::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+            }
+            #psa-grabber-list::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.35);
+            }
+
+            .psa-grabber-item {
+                padding: 10px 12px;
+                margin-bottom: 7px;
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 9px;
+                font-size: 12.5px;
+                line-height: 1.4;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                word-break: break-all;
+                display: flex;
+                align-items: flex-start;
+                gap: 9px;
+            }
+
+            .psa-grabber-item:last-child {
+                margin-bottom: 0;
+            }
+
+            .psa-grabber-item:hover {
+                background: rgba(255, 255, 255, 0.08);
+                border-color: rgba(0, 255, 136, 0.4);
+                transform: translateX(4px);
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            }
+            
+            .psa-grabber-item-icon {
+                margin-top: 2px;
+                opacity: 0.55;
+                transition: opacity 0.2s, color 0.2s;
+                flex-shrink: 0;
+            }
+            
+            .psa-grabber-item:hover .psa-grabber-item-icon {
+                opacity: 1;
+                color: #00ff88;
+            }
+
+            .psa-grabber-item-text {
+                opacity: 0.88;
+                transition: opacity 0.2s;
+                flex: 1;
+            }
+
+            .psa-grabber-item:hover .psa-grabber-item-text {
+                opacity: 1;
+                color: #fff;
+            }
+
+            .psa-source-tag {
+                display: inline-block;
+                color: #ff9f43;
+                background: rgba(255, 159, 67, 0.12);
+                border: 1px solid rgba(255, 159, 67, 0.3);
+                border-radius: 4px;
+                padding: 1px 4px;
+                font-size: 10px;
+                font-weight: 700;
+                margin-right: 6px;
+                vertical-align: middle;
+            }
+
+            .psa-empty-state {
+                padding: 30px 20px;
+                text-align: center;
+                color: rgba(255, 255, 255, 0.45);
+                font-size: 12px;
+                display: none;
+            }
+        `;
+        shadow.appendChild(style);
+    } else {
+        shadow = hostEl.shadowRoot;
+    }
+
+    // 2. Show Global Indicator on ALL pages (isolated inside shadow DOM)
+    if (!shadow.getElementById("psa-grabber-global-indicator")) {
         const indicator = document.createElement("div");
         indicator.id = "psa-grabber-global-indicator";
         indicator.innerHTML = `<span>⚡</span> PSA Fetch V2 Active`;
-
-        Object.assign(indicator.style, {
-            position: "fixed",
-            bottom: "20px",
-            left: "20px",
-            background: "rgba(15, 23, 42, 0.85)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            border: "1px solid rgba(0, 255, 136, 0.2)",
-            color: "#00ff88",
-            padding: "8px 14px",
-            fontSize: "13px",
-            fontFamily: "'Inter', system-ui, sans-serif",
-            fontWeight: "600",
-            borderRadius: "12px",
-            zIndex: "2147483646", // One less than sidepanel
-            boxShadow: "0 4px 15px rgba(0, 255, 136, 0.15)",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            pointerEvents: "none",
-            transition: "all 0.3s ease"
-        });
-
-        document.body.appendChild(indicator);
+        shadow.appendChild(indicator);
 
         // Fade out slightly after a few seconds but remain visible
         setTimeout(() => {
-            indicator.style.opacity = "0.6";
-            indicator.style.transform = "scale(0.95)";
-            indicator.style.transformOrigin = "bottom left";
+            if (indicator) {
+                indicator.style.opacity = "0.55";
+                indicator.style.transform = "scale(0.95)";
+                indicator.style.transformOrigin = "bottom left";
+            }
         }, 3000);
     }
 
-    // 2. Ignore sidepanel generation on home page and pagination pages
+    // 3. Ignore sidepanel generation on home page and pagination pages
     if (window.location.pathname === '/' || window.location.pathname.startsWith('/page/')) return;
 
-    if (document.getElementById("psa-grabber-sidepanel")) return;
+    if (shadow.getElementById("psa-grabber-sidepanel")) return;
 
-    // Extract file names and source names
+    // Extract file names and source names from host document
     function extractData() {
         const items = [];
 
@@ -78,7 +480,6 @@
 
             // For blocks with <br> like MediaInfo dumps or normal blocks, 
             // split by newline and check each line.
-            // Some browsers use \n for <br> in innerText
             const lines = p.innerText.split('\n');
 
             lines.forEach(line => {
@@ -127,305 +528,10 @@
     }
 
     function buildDOM(itemsData) {
-        if (document.getElementById("psa-grabber-sidepanel")) return;
+        if (shadow.getElementById("psa-grabber-sidepanel")) return;
 
         const panel = document.createElement("div");
         panel.id = "psa-grabber-sidepanel";
-
-        // Base glassmorphism styles
-        const styleId = "psa-grabber-styles";
-        if (!document.getElementById(styleId)) {
-            const style = document.createElement("style");
-            style.id = styleId;
-            style.textContent = `
-                #psa-grabber-sidepanel {
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    width: 380px;
-                    max-height: 500px;
-                    background: rgba(15, 23, 42, 0.85);
-                    backdrop-filter: blur(16px);
-                    -webkit-backdrop-filter: blur(16px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 16px;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-                    display: flex;
-                    flex-direction: column;
-                    z-index: 2147483647;
-                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-                    overflow: hidden;
-                    transform: translateY(20px);
-                    opacity: 0;
-                    animation: psaSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s ease, opacity 0.3s ease;
-                    color: #f8fafc;
-                }
-
-                @keyframes psaSlideIn {
-                    to {
-                        transform: translateY(0) scale(1);
-                        opacity: 1;
-                    }
-                }
-
-                #psa-grabber-sidepanel.minimized {
-                    max-height: 52px;
-                    opacity: 0.9;
-                    cursor: pointer;
-                }
-                
-                #psa-grabber-sidepanel.minimized:hover {
-                    opacity: 1;
-                    transform: scale(0.98);
-                }
-
-                #psa-grabber-sidepanel.minimized #psa-grabber-list {
-                    opacity: 0;
-                    pointer-events: none;
-                }
-
-                #psa-grabber-header {
-                    padding: 16px 20px;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    background: rgba(0, 0, 0, 0.2);
-                }
-
-                .psa-grabber-header-top {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-
-                #psa-grabber-search {
-                    width: 100%;
-                    box-sizing: border-box;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    color: #fff;
-                    font-size: 13px;
-                    font-family: inherit;
-                    outline: none;
-                    transition: all 0.2s;
-                }
-
-                #psa-grabber-search:focus {
-                    border-color: rgba(0, 255, 136, 0.5);
-                    background: rgba(255, 255, 255, 0.08);
-                }
-
-                #psa-grabber-search::placeholder {
-                    color: rgba(255, 255, 255, 0.4);
-                }
-
-                .psa-grabber-tabs {
-                    display: flex;
-                    gap: 6px;
-                    margin-top: 4px;
-                }
-
-                .psa-grabber-tab {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: rgba(255, 255, 255, 0.6);
-                    padding: 4px 10px;
-                    border-radius: 6px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    flex: 1;
-                }
-
-                .psa-grabber-tab:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    color: #fff;
-                }
-
-                .psa-grabber-tab.active {
-                    background: rgba(0, 255, 136, 0.15);
-                    border-color: rgba(0, 255, 136, 0.4);
-                    color: #00ff88;
-                }
-
-                #psa-grabber-sidepanel.minimized #psa-grabber-search,
-                #psa-grabber-sidepanel.minimized .psa-grabber-tabs {
-                    display: none;
-                }
-
-                #psa-grabber-header h3 {
-                    margin: 0;
-                    font-size: 16px;
-                    font-weight: 600;
-                    background: linear-gradient(135deg, #00ff88, #00b8ff);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-
-                .psa-header-actions {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                }
-
-                /* Toggle Switch Styles */
-                .psa-toggle-wrapper {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    font-size: 11px;
-                    color: rgba(255, 255, 255, 0.6);
-                    font-weight: 500;
-                    cursor: pointer;
-                }
-
-                .psa-toggle-wrapper:hover {
-                    color: rgba(255, 255, 255, 0.9);
-                }
-
-                .psa-toggle {
-                    position: relative;
-                    width: 32px;
-                    height: 18px;
-                    background: rgba(255, 255, 255, 0.1);
-                    border-radius: 20px;
-                    transition: all 0.3s;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                }
-
-                .psa-toggle::after {
-                    content: '';
-                    position: absolute;
-                    top: 2px;
-                    left: 2px;
-                    width: 12px;
-                    height: 12px;
-                    background: #fff;
-                    border-radius: 50%;
-                    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                }
-
-                .psa-toggle.active {
-                    background: rgba(0, 255, 136, 0.2);
-                    border-color: rgba(0, 255, 136, 0.5);
-                }
-
-                .psa-toggle.active::after {
-                    transform: translateX(14px);
-                    background: #00ff88;
-                    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
-                }
-
-                .psa-badge {
-                    background: rgba(0, 255, 136, 0.15);
-                    color: #00ff88;
-                    padding: 2px 8px;
-                    border-radius: 12px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    -webkit-text-fill-color: #00ff88;
-                }
-
-                #psa-grabber-list {
-                    flex: 1;
-                    overflow-y: auto;
-                    padding: 12px;
-                    margin: 0;
-                    list-style: none;
-                }
-
-                #psa-grabber-list::-webkit-scrollbar {
-                    width: 6px;
-                }
-                #psa-grabber-list::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                #psa-grabber-list::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.2);
-                    border-radius: 3px;
-                }
-                #psa-grabber-list::-webkit-scrollbar-thumb:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                }
-
-                .psa-grabber-item {
-                    padding: 12px 14px;
-                    margin-bottom: 8px;
-                    background: rgba(255, 255, 255, 0.04);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 10px;
-                    font-size: 13px;
-                    line-height: 1.4;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    word-break: break-all;
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 10px;
-                }
-
-                .psa-grabber-item:last-child {
-                    margin-bottom: 0;
-                }
-
-                .psa-grabber-item:hover {
-                    background: rgba(255, 255, 255, 0.08);
-                    border-color: rgba(0, 255, 136, 0.4);
-                    transform: translateX(4px);
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-                }
-                
-                .psa-grabber-item-icon {
-                    margin-top: 2px;
-                    opacity: 0.5;
-                    transition: opacity 0.2s, color 0.2s;
-                    flex-shrink: 0;
-                }
-                
-                .psa-grabber-item:hover .psa-grabber-item-icon {
-                    opacity: 1;
-                    color: #00ff88;
-                }
-
-                .psa-grabber-item-text {
-                    opacity: 0.85;
-                    transition: opacity 0.2s;
-                }
-
-                .psa-grabber-item:hover .psa-grabber-item-text {
-                    opacity: 1;
-                    color: #fff;
-                }
-
-                #psa-grabber-close {
-                    background: none;
-                    border: none;
-                    color: rgba(255,255,255,0.5);
-                    cursor: pointer;
-                    padding: 6px;
-                    border-radius: 6px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: all 0.2s;
-                }
-
-                #psa-grabber-close:hover {
-                    color: #ff4757;
-                    background: rgba(255, 71, 87, 0.1);
-                }
-            `;
-            document.head.appendChild(style);
-        }
 
         panel.innerHTML = `
             <div id="psa-grabber-header">
@@ -436,26 +542,28 @@
                             <span id="psa-toggle-label">Auto-open</span>
                             <div class="psa-toggle" id="psa-torrent-toggle"></div>
                         </div>
-                        <button id="psa-grabber-close" title="Close Panel">
+                        <button id="psa-grabber-close" title="Close Panel" type="button">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                     </div>
                 </div>
                 <input type="text" id="psa-grabber-search" placeholder="Search filenames..." autocomplete="off" spellcheck="false" />
                 <div class="psa-grabber-tabs">
-                    <button class="psa-grabber-tab active" data-filter="all">All</button>
-                    <button class="psa-grabber-tab" data-filter="720p">720p</button>
-                    <button class="psa-grabber-tab" data-filter="1080p">1080p</button>
-                    <button class="psa-grabber-tab" data-filter="2160p">2160p</button>
-                    <button class="psa-grabber-tab" data-filter="source">Source</button>
+                    <button type="button" class="psa-grabber-tab active" data-filter="all">All</button>
+                    <button type="button" class="psa-grabber-tab" data-filter="720p">720p</button>
+                    <button type="button" class="psa-grabber-tab" data-filter="1080p">1080p</button>
+                    <button type="button" class="psa-grabber-tab" data-filter="2160p">2160p</button>
+                    <button type="button" class="psa-grabber-tab" data-filter="source">Source</button>
                 </div>
             </div>
             <ul id="psa-grabber-list"></ul>
+            <div class="psa-empty-state" id="psa-empty-state">No matching items found</div>
         `;
 
-        document.body.appendChild(panel);
+        shadow.appendChild(panel);
 
-        const listElement = document.getElementById("psa-grabber-list");
+        const listElement = shadow.getElementById("psa-grabber-list");
+        const emptyState = shadow.getElementById("psa-empty-state");
         const listItems = [];
 
         itemsData.forEach((itemData) => {
@@ -468,7 +576,7 @@
                 ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`
                 : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
 
-            const prefix = type === 'source' ? `<span style="color: #ff9f43; font-weight: 600; font-size: 11px; margin-right: 4px;">[SRC]</span>` : '';
+            const prefix = type === 'source' ? `<span class="psa-source-tag">SRC</span>` : '';
 
             li.innerHTML = `
                 <div class="psa-grabber-item-icon">${iconSvg}</div>
@@ -509,92 +617,106 @@
                     item.element.style.display = "none";
                 }
             });
-            // Update badge count
-            document.querySelector(".psa-badge").textContent = visibleCount;
+
+            // Update badge count & empty state
+            const badge = shadow.querySelector(".psa-badge");
+            if (badge) badge.textContent = visibleCount;
+
+            if (emptyState) {
+                emptyState.style.display = visibleCount === 0 ? "block" : "none";
+            }
         }
 
         // Search Logic
-        document.getElementById("psa-grabber-search").addEventListener("input", (e) => {
-            currentSearchTerm = e.target.value.toLowerCase();
-            applyFilters();
-        });
+        const searchInput = shadow.getElementById("psa-grabber-search");
+        if (searchInput) {
+            searchInput.addEventListener("input", (e) => {
+                currentSearchTerm = e.target.value.toLowerCase();
+                applyFilters();
+            });
+            searchInput.addEventListener("click", (e) => e.stopPropagation());
+        }
 
         // Tab Logic
-        const tabs = document.querySelectorAll(".psa-grabber-tab");
+        const tabs = shadow.querySelectorAll(".psa-grabber-tab");
         tabs.forEach(tab => {
             tab.addEventListener("click", (e) => {
-                // Update active tab styling
                 tabs.forEach(t => t.classList.remove("active"));
                 e.target.classList.add("active");
 
-                // Update filter and re-apply
                 currentFilter = e.target.dataset.filter;
                 applyFilters();
             });
         });
 
-        // Prevent header click from minimizing when clicking search or tabs
-        document.getElementById("psa-grabber-search").addEventListener("click", (e) => e.stopPropagation());
-        document.querySelector(".psa-grabber-tabs").addEventListener("click", (e) => e.stopPropagation());
+        const tabsContainer = shadow.querySelector(".psa-grabber-tabs");
+        if (tabsContainer) {
+            tabsContainer.addEventListener("click", (e) => e.stopPropagation());
+        }
 
-        document.getElementById("psa-grabber-close").addEventListener("click", (e) => {
-            e.stopPropagation(); // prevent panel click
-            panel.classList.toggle('minimized');
-            const isMinimized = panel.classList.contains('minimized');
+        // Close / Minimize Logic
+        const closeBtn = shadow.getElementById("psa-grabber-close");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                panel.classList.toggle('minimized');
+                const isMinimized = panel.classList.contains('minimized');
 
-            // Update button icon
-            const btn = document.getElementById("psa-grabber-close");
-            if (isMinimized) {
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
-                btn.title = "Restore Panel";
-            } else {
-                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-                btn.title = "Minimize Panel";
-            }
-        });
-
-        // Clicking the header/panel when minimized restores it
-        document.getElementById("psa-grabber-header").addEventListener("click", () => {
-            if (panel.classList.contains('minimized')) {
-                panel.classList.remove('minimized');
-                document.getElementById("psa-grabber-close").innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-                document.getElementById("psa-grabber-close").title = "Minimize Panel";
-            }
-        });
-        document.getElementById("psa-grabber-header").style.cursor = "pointer";
-
-        // --- Torrent Toggle Logic ---
-        const toggleWrap = document.getElementById("psa-torrent-toggle-wrap");
-        const toggleBtn = document.getElementById("psa-torrent-toggle");
-
-        // Prevent header click from expanding/minimizing when clicking the toggle wrapper
-        toggleWrap.addEventListener("click", (e) => {
-            e.stopPropagation();
-
-            // Toggle local UI class
-            toggleBtn.classList.toggle("active");
-            const isActive = toggleBtn.classList.contains("active");
-
-            // Save state to chrome storage
-            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-                chrome.storage.local.set({ autoOpenMagnet: isActive });
-            }
-        });
-
-        // Initialize Toggle State on Load from chrome.storage
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(['autoOpenMagnet'], (result) => {
-                if (result.autoOpenMagnet) {
-                    toggleBtn.classList.add("active");
+                if (isMinimized) {
+                    closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+                    closeBtn.title = "Restore Panel";
+                } else {
+                    closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                    closeBtn.title = "Minimize Panel";
                 }
             });
+        }
+
+        // Clicking the header when minimized restores it
+        const header = shadow.getElementById("psa-grabber-header");
+        if (header) {
+            header.addEventListener("click", () => {
+                if (panel.classList.contains('minimized')) {
+                    panel.classList.remove('minimized');
+                    if (closeBtn) {
+                        closeBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                        closeBtn.title = "Minimize Panel";
+                    }
+                }
+            });
+        }
+
+        // --- Torrent Toggle Logic ---
+        const toggleWrap = shadow.getElementById("psa-torrent-toggle-wrap");
+        const toggleBtn = shadow.getElementById("psa-torrent-toggle");
+
+        if (toggleWrap && toggleBtn) {
+            toggleWrap.addEventListener("click", (e) => {
+                e.stopPropagation();
+
+                toggleBtn.classList.toggle("active");
+                const isActive = toggleBtn.classList.contains("active");
+
+                if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                    chrome.storage.local.set({ autoOpenMagnet: isActive });
+                }
+            });
+
+            // Initialize Toggle State on Load from chrome.storage
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.get(['autoOpenMagnet'], (result) => {
+                    if (result.autoOpenMagnet) {
+                        toggleBtn.classList.add("active");
+                    }
+                });
+            }
         }
     }
 
     renderPanel();
 })();
 
-// ===== Main Click Logic (Preserved for compatibility) =====
+// ===== Main Click Logic (Preserved for direct page link interception) =====
 document.addEventListener("click", (event) => {
     // Ignore home page and pagination pages
     if (window.location.pathname === '/' || window.location.pathname.startsWith('/page/')) return;
