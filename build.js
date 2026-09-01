@@ -1,45 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const JavaScriptObfuscator = require('javascript-obfuscator');
 const { rimrafSync } = require('rimraf');
 const readline = require('readline');
 const archiver = require('archiver');
 
 const DIST_DIR = path.join(__dirname, 'dist');
 const RELEASES_DIR = path.join(__dirname, 'releases');
-
-// Define obfuscation settings to make the output highly encrypted/unreadable
-const obfuscatorOptions = {
-    compact: true,
-    controlFlowFlattening: true,
-    controlFlowFlatteningThreshold: 1,
-    deadCodeInjection: true,
-    deadCodeInjectionThreshold: 0.4,
-    debugProtection: false,
-    debugProtectionInterval: 0,
-    disableConsoleOutput: false,
-    identifierNamesGenerator: 'hexadecimal',
-    log: false,
-    numbersToExpressions: true,
-    renameGlobals: false,
-    selfDefending: true,
-    simplify: true,
-    splitStrings: true,
-    splitStringsChunkLength: 10,
-    stringArray: true,
-    stringArrayCallsTransform: true,
-    stringArrayCallsTransformThreshold: 0.5,
-    stringArrayEncoding: ['rc4'],
-    stringArrayIndexShift: true,
-    stringArrayRotate: true,
-    stringArrayShuffle: true,
-    stringArrayWrappersCount: 1,
-    stringArrayWrappersChainedCalls: true,
-    stringArrayWrappersParametersMaxCount: 2,
-    stringArrayWrappersType: 'variable',
-    stringArrayThreshold: 0.75,
-    unicodeEscapeSequence: false
-};
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -51,13 +17,11 @@ function askQuestion(query) {
 }
 
 async function updateVersions(version) {
-    // Update package.json
     const packagePath = path.join(__dirname, 'package.json');
     const packageData = require(packagePath);
     packageData.version = version;
     fs.writeFileSync(packagePath, JSON.stringify(packageData, null, 2) + '\n');
 
-    // Update manifest.json
     const manifestPath = path.join(__dirname, 'manifest.json');
     const manifestData = require(manifestPath);
     manifestData.version = version;
@@ -71,25 +35,16 @@ async function createZip(version, pluginName) {
 
     const zipPath = path.join(RELEASES_DIR, `${pluginName}-${version}.zip`);
     const output = fs.createWriteStream(zipPath);
-    const archive = archiver('zip', {
-        zlib: { level: 9 } // Sets the compression level.
-    });
+    const archive = archiver('zip', { zlib: { level: 9 } });
 
     return new Promise((resolve, reject) => {
-        output.on('close', function () {
-            console.log(`Successfully created ${zipPath} (${archive.pointer()} total bytes)`);
+        output.on('close', () => {
+            console.log(`Successfully created ${zipPath} (${archive.pointer()} bytes)`);
             resolve();
         });
-
-        archive.on('error', function (err) {
-            reject(err);
-        });
-
+        archive.on('error', err => reject(err));
         archive.pipe(output);
-
-        // append files from a sub-directory, putting its contents at the root of archive
         archive.directory(DIST_DIR, false);
-
         archive.finalize();
     });
 }
@@ -99,83 +54,55 @@ async function build() {
     const currentVersion = packageData.version || '1.0.0';
     const pluginName = packageData.name || 'plugin';
 
-    const answer = await askQuestion(`Enter new version (current is ${currentVersion}) [Press Enter to keep current]: `);
-    let newVersion = answer.trim();
-    if (!newVersion) {
-        newVersion = currentVersion;
-        console.log(`Using current version: ${newVersion}`);
-    } else {
+    const answer = await askQuestion(`Enter new version (current is ${currentVersion}): `);
+    let newVersion = answer.trim() || currentVersion;
+    
+    if (newVersion !== currentVersion) {
         await updateVersions(newVersion);
-        console.log(`Updated version to ${newVersion} in package.json and manifest.json`);
+        console.log(`Updated version to ${newVersion}`);
     }
 
     rl.close();
+    console.log('Starting clean build (No Obfuscation)...');
 
-    console.log('Starting build process...');
-
-    // 1. Clean the old dist directory
-    console.log('Cleaning old dist folder...');
+    // 1. Clean dist
     rimrafSync(DIST_DIR);
     fs.mkdirSync(DIST_DIR, { recursive: true });
 
-    // 2. Identify files to copy vs obfuscate
-    const filesToCopy = [
+    // 2. Define all files and directories to copy
+    // We now treat JS files as regular files to keep them readable
+    const itemsToCopy = [
         'manifest.json',
-        'README.md'
-    ];
-    // Copy entire icons directory
-    const directoriesToCopy = [
-        'icons'
-    ];
-    const jsFilesToObfuscate = [
+        'README.md',
+        'icons',
         'content.js',
         'rss.js'
     ];
 
-    // 3. Process direct copies
-    for (const file of filesToCopy) {
-        if (fs.existsSync(file)) {
-            fs.copyFileSync(file, path.join(DIST_DIR, file));
-            console.log(`Copied: ${file}`);
+    // 3. Helper for recursive copying
+    const copyRecursiveSync = (src, dest) => {
+        if (!fs.existsSync(src)) return;
+        const stats = fs.statSync(src);
+        if (stats.isDirectory()) {
+            fs.mkdirSync(dest, { recursive: true });
+            fs.readdirSync(src).forEach(child => {
+                copyRecursiveSync(path.join(src, child), path.join(dest, child));
+            });
+        } else {
+            fs.copyFileSync(src, dest);
+            console.log(`Copied: ${src}`);
         }
+    };
+
+    // 4. Execute Copy
+    for (const item of itemsToCopy) {
+        copyRecursiveSync(item, path.join(DIST_DIR, item));
     }
 
-    // 4. Copy directories recursively
-    for (const dir of directoriesToCopy) {
-        if (fs.existsSync(dir)) {
-            const copyRecursiveSync = (src, dest) => {
-                const exists = fs.existsSync(src);
-                const stats = exists && fs.statSync(src);
-                const isDirectory = exists && stats.isDirectory();
-                if (isDirectory) {
-                    fs.mkdirSync(dest, { recursive: true });
-                    fs.readdirSync(src).forEach((childItemName) => {
-                        copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
-                    });
-                } else {
-                    fs.copyFileSync(src, dest);
-                }
-            };
-            copyRecursiveSync(dir, path.join(DIST_DIR, dir));
-            console.log(`Copied directory: ${dir}`);
-        }
-    }
-
-    // 5. Obfuscate and save JS files
-    for (const file of jsFilesToObfuscate) {
-        if (fs.existsSync(file)) {
-            console.log(`Obfuscating: ${file}...`);
-            const sourceCode = fs.readFileSync(file, 'utf8');
-            const obfuscated = JavaScriptObfuscator.obfuscate(sourceCode, obfuscatorOptions);
-            fs.writeFileSync(path.join(DIST_DIR, file), obfuscated.getObfuscatedCode());
-            console.log(`Saved obfuscated: ${file}`);
-        }
-    }
-
-    console.log('Zipping into releases folder...');
+    console.log('Zipping readable extension...');
     await createZip(newVersion, pluginName);
 
-    console.log('Build complete! Your encrypted extension is ready in the "dist" folder and zipped in "releases".');
+    console.log('Build complete! Your clean extension is in the "releases" folder.');
 }
 
 build().catch(err => {
