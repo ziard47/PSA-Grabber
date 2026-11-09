@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSA Fetch Settings</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            width: 350px;
+            background: #0f172a;
+            color: #f8fafc;
+            font-size: 13px;
+            padding: 16px;
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 14px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .header-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 9999px;
+        }
+
+        /* Section Cards */
+        .card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Current Site Info */
+        .site-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .domain-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #f8fafc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .status-pill {
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.18);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .status-inactive {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .btn-enable-current {
+            margin-top: 10px;
+            width: 100%;
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #10b981;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 7px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-enable-current:hover {
+            background: #10b981;
+            color: #0f172a;
+        }
+
+        /* Toggle Row */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-text {
+            font-size: 12.5px;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #334155;
+            transition: 0.2s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: 0.2s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background: #10b981;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        /* Input & Dropdowns */
+        .input-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        input[type="text"], select {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+            color: #f8fafc;
+            padding: 6px 10px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: #10b981;
+        }
+
+        .btn-add {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #10b981;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .btn-add:hover {
+            background: #10b981;
+            color: #0f172a;
+        }
+
+        /* Domain Tags List */
+        .domain-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+            max-height: 90px;
+            overflow-y: auto;
+        }
+
+        .domain-tag {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .domain-tag-remove {
+            cursor: pointer;
+            color: #94a3b8;
+            font-weight: 700;
+            font-size: 12px;
+            transition: color 0.15s;
+        }
+
+        .domain-tag-remove:hover {
+            color: #ef4444;
+        }
+
+        .help-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+            line-height: 1.35;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <span>⚡</span>
+            <span>PSA Fetch</span>
+        </div>
+        <span class="header-badge">v2.1.4</span>
+    </div>
+
+    <!-- Active Site Status -->
+    <div class="card">
+        <div class="card-label">Current Website</div>
+        <div class="site-info">
+            <span class="domain-name" id="current-domain">Detecting...</span>
+            <span class="status-pill status-inactive" id="status-pill">Checking...</span>
+        </div>
+        <button id="btn-enable-current" class="btn-enable-current" style="display: none;">
+            <span>+</span> Enable PSA Fetch on this site
+        </button>
+    </div>
+
+    <!-- Auto-Open Preference -->
+    <div class="card">
+        <div class="toggle-row">
+            <span class="toggle-text">Auto-launch Torrent Client</span>
+            <label class="switch">
+                <input type="checkbox" id="auto-open-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Custom Domains Management -->
+    <div class="card">
+        <div class="card-label">Future-Proof Domains</div>
+        <div class="help-text">
+            Automatically works on any <b>psa.*</b> or <b>psarip.*</b> domain. Add any other custom domain below:
+        </div>
+        <div class="input-row">
+            <input type="text" id="input-domain" placeholder="e.g. psa.com or new-psa.org">
+            <button id="btn-add-domain" class="btn-add">Add</button>
+        </div>
+        <div class="domain-list" id="domain-list"></div>
+    </div>
+
+    <!-- RSS Provider Setting -->
+    <div class="card">
+        <div class="card-label">Torrent Search Provider</div>
+        <select id="provider-select">
+            <option value="https://bt4gprx.com/search?q={query}&page=rss">bt4gprx.com (Default)</option>
+            <option value="https://bt4g.org/search?q={query}&page=rss">bt4g.org (Mirror)</option>
+            <option value="https://bt4g.com/search?q={query}&page=rss">bt4g.com (Mirror)</option>
+            <option value="custom">Custom Template URL...</option>
+        </select>
+        <div class="input-row" id="custom-provider-row" style="display: none;">
+            <input type="text" id="custom-provider-input" placeholder="https://mirror.com/search?q={query}&page=rss">
+            <button id="btn-save-provider" class="btn-add">Save</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
+

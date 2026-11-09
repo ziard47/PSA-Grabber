@@ -76,7 +76,9 @@ async function build() {
         'README.md',
         'icons',
         'content.js',
-        'rss.js'
+        'rss.js',
+        'popup.html',
+        'popup.js'
     ];
 
     // 3. Helper for recursive copying
