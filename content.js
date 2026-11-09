@@ -1,5 +1,65 @@
 // ===== PSA Grabber Sidepanel =====
-(function initPSAGrabber() {
+async function shouldRunOnThisPage() {
+    const host = window.location.hostname.toLowerCase();
+
+    // 1. Check custom domains in storage
+    try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            const data = await new Promise(r => chrome.storage.local.get(['customDomains'], r));
+            const list = data.customDomains || [];
+            if (list.some(d => host === d.toLowerCase() || host.endsWith("." + d.toLowerCase()))) {
+                return true;
+            }
+        }
+    } catch (_) {}
+
+    // 2. Standard PSA domain pattern match (psa.*, *.psa.*, psarip.*, etc.)
+    const isPsaDomainPattern = /(?:^|\.)psa\.[a-z]{2,12}$/i.test(host) ||
+                               /(?:^|\.)psarips?\.[a-z]{2,12}$/i.test(host) ||
+                               host.includes("psa-rip") ||
+                               host.includes("hevc-psa");
+
+    if (isPsaDomainPattern) {
+        // Guard for non-movie sites that happen to share a psa.xxx domain (e.g. Peugeot)
+        const pageText = (document.title + " " + (document.querySelector('meta[name="description"]')?.content || "")).toLowerCase();
+        const hasPsaSignatures = pageText.includes("psa") ||
+                                 pageText.includes("hevc") ||
+                                 pageText.includes("x265") ||
+                                 pageText.includes("movie") ||
+                                 pageText.includes("rip") ||
+                                 pageText.includes("release") ||
+                                 document.querySelector('.sp-head, a[href*="/goto/"], strong') !== null;
+        if (hasPsaSignatures) return true;
+
+        // Known historical PSA domains
+        const known = ["psa.rip", "psa.wf", "psa.pm", "psa.re", "psa.to", "psa.cx", "psa.com"];
+        if (known.some(k => host === k || host.endsWith("." + k))) return true;
+    }
+
+    // 3. Fallback: Does the page DOM contain unmistakable PSA structures?
+    if (document.querySelector('.sp-head, a[href*="/goto/"]') && document.body && document.body.innerText.includes(".HEVC-PSA")) {
+        return true;
+    }
+
+    return false;
+}
+
+function getRssSearchUrl(encodedTitle, callback) {
+    const defaultTemplate = "https://bt4gprx.com/search?q={query}&page=rss";
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['rssProviderUrl'], (res) => {
+            const template = res.rssProviderUrl || defaultTemplate;
+            callback(template.replace("{query}", encodedTitle));
+        });
+    } else {
+        callback(defaultTemplate.replace("{query}", encodedTitle));
+    }
+}
+
+(async function initPSAGrabber() {
+    const isTarget = await shouldRunOnThisPage();
+    if (!isTarget) return;
+
     // 1. Create or retrieve Shadow Root Host for complete CSS isolation from website styles
     let hostEl = document.getElementById("psa-grabber-root");
     let shadow;
@@ -585,8 +645,9 @@
 
             li.addEventListener("click", () => {
                 const encodedTitle = encodeURIComponent(name);
-                const rssUrl = `https://bt4gprx.com/search?q=${encodedTitle}&page=rss`;
-                window.open(rssUrl, "_blank");
+                getRssSearchUrl(encodedTitle, (rssUrl) => {
+                    window.open(rssUrl, "_blank");
+                });
             });
 
             listElement.appendChild(li);
@@ -722,7 +783,11 @@ document.addEventListener("click", (event) => {
     if (window.location.pathname === '/' || window.location.pathname.startsWith('/page/')) return;
 
     const link = event.target.closest("a");
-    if (!link || !link.href || !link.href.includes("psa.wf/goto")) return;
+    if (!link || !link.href) return;
+
+    // Check if link is a PSA redirect (either relative /goto/ or absolute domain/goto/)
+    const isGotoLink = link.href.includes("/goto/") || (link.pathname && link.pathname.startsWith("/goto"));
+    if (!isGotoLink) return;
 
     const titleEl = document.querySelector(".sp-head.unfolded");
     if (!titleEl) return;
@@ -735,6 +800,7 @@ document.addEventListener("click", (event) => {
     event.stopImmediatePropagation();
 
     const encodedTitle = encodeURIComponent(titleText);
-    const rssUrl = `https://bt4gprx.com/search?q=${encodedTitle}&page=rss`;
-    window.open(rssUrl, "_blank");
+    getRssSearchUrl(encodedTitle, (rssUrl) => {
+        window.open(rssUrl, "_blank");
+    });
 }, true);
